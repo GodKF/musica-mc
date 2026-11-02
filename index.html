@@ -1,23 +1,92 @@
 <!doctype html>
 <html lang="es"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Música para Etched</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#2b2b2b">
+<title>Discos de música</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
 <style>
- :root{--bg:#16181d;--card:#20232b;--line:#3a3f4b;--fg:#e8e8ea;--mut:#8f95a6;--acc:#4f8cff;--err:#ff7b7b}
- @media (prefers-color-scheme:light){:root{--bg:#f4f5f8;--card:#fff;--line:#cfd3dc;--fg:#1b1e25;--mut:#626878;--acc:#2f6fed;--err:#c62828}}
- body{font-family:system-ui,sans-serif;max-width:480px;margin:40px auto;padding:0 16px;background:var(--bg);color:var(--fg)}
- h1{font-size:1.3rem} label{display:block;margin:14px 0 4px;font-size:.9rem;color:var(--mut)}
- input,button{width:100%;box-sizing:border-box;padding:10px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:inherit;font-size:1rem}
- button{background:var(--acc);color:#fff;border:0;margin-top:18px;cursor:pointer} button:disabled{opacity:.5}
- #out{margin-top:20px;word-break:break-all} .err{color:var(--err)} small{color:var(--mut)}
+ *{box-sizing:border-box}
+ html,body{margin:0;min-height:100%}
+ body{
+   min-height:100dvh;display:flex;align-items:center;justify-content:center;
+   padding:max(16px,env(safe-area-inset-top)) max(14px,env(safe-area-inset-right)) max(16px,env(safe-area-inset-bottom)) max(14px,env(safe-area-inset-left));
+   font-family:"VT323","Courier New",monospace;font-size:22px;line-height:1.2;color:#fff;background:#2b2b2b;
+   -webkit-text-size-adjust:100%;
+ }
+ /* Fondo difuminado */
+ #bg,#bgimg{position:fixed;inset:0;width:100%;height:100%;z-index:-2;transform:scale(1.1);filter:blur(7px) brightness(.8)}
+ #bg{object-fit:cover;image-rendering:pixelated}
+ #bgimg{background:center/cover no-repeat;display:none}
+ body::before{content:"";position:fixed;inset:0;z-index:-1;background:linear-gradient(rgba(0,0,0,.15),rgba(0,0,0,.45))}
+
+ .panel{
+   width:100%;max-width:460px;padding:22px 18px 18px;
+   background:rgba(24,24,24,.82);border:4px solid #000;
+   box-shadow:inset 0 0 0 4px #4d4d4d,0 10px 0 rgba(0,0,0,.35);
+ }
+ h1{font-family:"Press Start 2P","Courier New",monospace;font-size:15px;line-height:1.6;margin:0 0 10px;text-shadow:3px 3px #3f3f3f;color:#fcfc54}
+ p.hint{margin:0 0 6px;color:#c6c6c6;font-size:20px}
+ label.t{display:block;margin:16px 0 6px;color:#aaa;text-shadow:2px 2px #1c1c1c}
+
+ input[type=password],input[type=text]{
+   width:100%;min-height:50px;padding:8px 10px;border-radius:0;
+   font:inherit;color:#fff;background:#000;border:3px solid #a0a0a0;outline:0;
+ }
+ input[type=password]:focus,input[type=text]:focus{border-color:#fff}
+ input[readonly]{color:#fcfc54}
+
+ .btn{
+   display:flex;align-items:center;justify-content:center;width:100%;min-height:54px;margin-top:10px;padding:8px 12px;
+   font:inherit;font-size:24px;color:#fff;text-shadow:2px 2px #3f3f3f;text-align:center;cursor:pointer;
+   background:#707070;border:3px solid #000;border-radius:0;
+   box-shadow:inset 3px 3px 0 #b4b4b4,inset -3px -3px 0 #3c3c3c;
+   -webkit-tap-highlight-color:transparent;user-select:none;
+ }
+ .btn:hover,.btn:focus-visible{background:#6e7fbf;outline:0}
+ .btn:active{box-shadow:inset 3px 3px 0 #3c3c3c,inset -3px -3px 0 #b4b4b4}
+ .btn.go{background:#5b8f2e;box-shadow:inset 3px 3px 0 #92d058,inset -3px -3px 0 #345a16}
+ .btn.go:hover,.btn.go:focus-visible{background:#6fae38}
+ .btn:disabled{background:#4a4a4a;color:#9a9a9a;text-shadow:none;cursor:not-allowed;box-shadow:inset 3px 3px 0 #666,inset -3px -3px 0 #2b2b2b}
+ #fname{margin-top:8px;color:#fcfc54;word-break:break-word;min-height:1.2em}
+
+ .bar{display:none;height:18px;margin-top:16px;background:#000;border:3px solid #a0a0a0}
+ .bar>i{display:block;height:100%;width:0;background:#7fe037;box-shadow:inset 0 3px 0 #b6ff7a,inset 0 -3px 0 #3e8c14;transition:width .15s}
+ #status{margin-top:12px;word-break:break-word}
+ #status.err{color:#ff6b6b}
+ #result{display:none;margin-top:14px}
+ small{display:block;margin-top:10px;color:#9a9a9a;font-size:19px}
+ @media (max-width:380px){body{font-size:20px}h1{font-size:13px}}
 </style></head><body>
-<h1>🎵 Sube tu música</h1>
-<small>mp3, ogg o wav · máx. <span id="mx"></span> MB. Pega el enlace que te doy en la Etching Table.</small>
-<label>Contraseña del grupo</label><input id="pass" type="password" autocomplete="current-password">
-<label>Tu nombre (opcional)</label><input id="who" maxlength="30">
-<label>Archivo</label><input id="file" type="file" accept=".mp3,.ogg,.wav,audio/*">
-<button id="go">Subir</button>
-<div id="out"></div>
+<canvas id="bg" aria-hidden="true"></canvas><div id="bgimg" aria-hidden="true"></div>
+
+<main class="panel">
+  <h1>Crea tu disco de música</h1>
+  <p class="hint">Sube una canción (cualquier formato de audio) y te doy el enlace MP3 para la Etching Table.</p>
+
+  <label class="t" for="pass">Contraseña del grupo</label>
+  <input id="pass" type="password" autocomplete="current-password" autocapitalize="off" autocorrect="off">
+
+  <label class="t" for="who">Tu nick de Minecraft o nombre (obligatorio)</label>
+  <input id="who" type="text" maxlength="30" autocomplete="nickname" required>
+
+  <label class="btn" for="file" id="pick">Elegir canción</label>
+  <input id="file" type="file" hidden accept="audio/*,.mp3,.m4a,.aac,.ogg,.opus,.flac,.wav,.wma,.webm,.mp4">
+  <div id="fname"></div>
+
+  <button class="btn go" id="go" type="button">Subir</button>
+
+  <div class="bar" id="bar"><i id="fill"></i></div>
+  <div id="status" role="status" aria-live="polite"></div>
+
+  <div id="result">
+    <input id="u" type="text" readonly>
+    <button class="btn" id="cp" type="button">Copiar enlace</button>
+    <small>Puede tardar uno o dos minutos en estar disponible.</small>
+  </div>
+  <small>Máx. <span id="mx"></span> MB de MP3. Los demás formatos se convierten solos.</small>
+</main>
 
 <script>
 // ───────── CONFIGURACIÓN (edita solo esto) ─────────
@@ -25,7 +94,12 @@ const CFG = {
   repo: "GodKF/musica-mc",
   branch: "main",
   dir: "subidas",
-  maxMB: 25,
+  maxMB: 25,          // tamaño máximo del MP3 final
+  maxInputMB: 30,     // tamaño máximo del archivo original si hay que convertirlo (más es riesgoso en móviles)
+  kbps: 128,          // calidad del MP3 al convertir
+  // Foto de fondo propia (opcional). Ej: "fondo.jpg" subida al repo, o una URL https.
+  // Si queda vacío se dibuja un paisaje de bloques difuminado.
+  bg: "",
   // Pega aquí el resultado de encriptar.html (objeto {"v":1,"iter":...,"salt":...,"iv":...,"ct":...})
   blob: {"v":1,"iter":600000,"salt":"0ZXmGPuELXG3mYcAXD5GWg==","iv":"aVJinh84iTAEALC8","ct":"CoQ4s4TjKC2h7u6g9Zfco8crIegNeMoxGgQRJABkOFwh0/NvAoIp0aoiNqP5Qg/1+8eqMg8uwHWBmd0gkGrpqXP7VUpjmd1kQaJ2Epx5JaRn9hSBvFTnaG+HK+Wp8Hh/e9ICKRIyEoOzOWZBkg=="}
 };
@@ -52,14 +126,52 @@ async function decryptToken(pass, blob) {
 const $ = id => document.getElementById(id);
 $("mx").textContent = CFG.maxMB;
 let token = null;
+try { $("who").value = localStorage.getItem("who") || ""; } catch {}
 
-function detectExt(h) {
-  if (h[0] === 0x49 && h[1] === 0x44 && h[2] === 0x33) return ".mp3";            // ID3
-  if (h[0] === 0xFF && (h[1] & 0xE0) === 0xE0) return ".mp3";                    // frame sync
-  if (h[0] === 0x4F && h[1] === 0x67 && h[2] === 0x67 && h[3] === 0x53) return ".ogg"; // OggS
-  if (h[0] === 0x52 && h[1] === 0x49 && h[2] === 0x46 && h[3] === 0x46 &&
-      h[8] === 0x57 && h[9] === 0x41 && h[10] === 0x56 && h[11] === 0x45) return ".wav"; // RIFF…WAVE
-  return null;
+/* ───── Fondo ───── */
+function paintBg() {
+  const W = 192, H = 108, c = $("bg"), x = c.getContext("2d");
+  c.width = W; c.height = H;
+  let seed = 1337; const rnd = () => (seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296;
+  for (let y = 0; y < H; y++) {                       // cielo
+    const t = y / H;
+    x.fillStyle = `rgb(${120 + t * 80 | 0},${185 + t * 50 | 0},${235 + t * 15 | 0})`;
+    x.fillRect(0, y, W, 1);
+  }
+  x.fillStyle = "rgba(255,255,255,.92)";              // nubes de bloques
+  for (let i = 0; i < 6; i++) {
+    const cx = rnd() * W | 0, cy = 8 + rnd() * 24 | 0, w = 16 + rnd() * 16 | 0;
+    x.fillRect(cx, cy, w, 3); x.fillRect(cx + 3, cy - 2, w - 8, 2); x.fillRect(cx + 2, cy + 3, w - 4, 1);
+  }
+  const base = 60, hs = []; let h = base;             // colinas
+  for (let i = 0; i < W; i++) {
+    if (i % 6 === 0) h = Math.max(base - 9, Math.min(base + 9, h + (rnd() - .5) * 6));
+    hs.push(Math.round(h));
+  }
+  for (let i = 0; i < W; i++) {
+    for (let y = hs[i]; y < H; y++) {
+      const d = y - hs[i], j = (rnd() * 18 | 0) - 9; let col;
+      if (d < 2) col = [93 + j, 155 + j, 58 + j];                  // pasto
+      else if (d < 6) col = [134 + j, 96 + j, 67 + j];             // tierra
+      else {
+        col = [125 + j, 125 + j, 125 + j]; const r = rnd();        // piedra y minerales
+        if (r < .012) col = [40, 40, 40]; else if (r < .018) col = [215, 190, 165];
+        else if (r < .021) col = [90, 230, 230]; else if (r < .023) col = [250, 220, 70];
+      }
+      x.fillStyle = `rgb(${col[0]},${col[1]},${col[2]})`; x.fillRect(i, y, 1, 1);
+    }
+  }
+}
+if (CFG.bg) {
+  $("bg").style.display = "none";
+  const b = $("bgimg"); b.style.display = "block"; b.style.backgroundImage = `url("${CFG.bg}")`;
+} else paintBg();
+
+/* ───── Utilidades ───── */
+// MP3 real: cabecera ID3, o sincronía MPEG con capa válida (los AAC/ADTS tienen capa 00 y NO son MP3)
+function isMp3(h) {
+  if (h[0] === 0x49 && h[1] === 0x44 && h[2] === 0x33) return true;
+  return h[0] === 0xFF && (h[1] & 0xE0) === 0xE0 && (h[1] & 0x06) !== 0 && (h[1] & 0x18) !== 0x08;
 }
 function slug(name) {
   const s = name.replace(/\.[^.]*$/, "").normalize("NFD").replace(/[\u0300-\u036f]/g, "")
@@ -70,60 +182,168 @@ function rand(n) {
   const a = "abcdefghijkmnpqrstuvwxyz23456789", r = crypto.getRandomValues(new Uint8Array(n));
   return [...r].map(x => a[x % a.length]).join("");
 }
-function toBase64(file) {
+function toBase64(blob) {
   return new Promise((res, rej) => {
     const fr = new FileReader();
     fr.onload = () => res(fr.result.split(",")[1]);
     fr.onerror = () => rej(new Error("No se pudo leer el archivo."));
-    fr.readAsDataURL(file);
+    fr.readAsDataURL(blob);
   });
 }
-function show(html, isErr) {
-  const o = $("out");
-  if (isErr) { o.innerHTML = '<span class="err"></span>'; o.firstChild.textContent = html; }
-  else o.innerHTML = html;
+const tick = () => new Promise(r => setTimeout(r));
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+function status(msg, isErr) { const s = $("status"); s.textContent = msg || ""; s.className = isErr ? "err" : ""; }
+function progress(p) {
+  $("bar").style.display = p == null ? "none" : "block";
+  if (p != null) $("fill").style.width = Math.round(Math.max(0, Math.min(1, p)) * 100) + "%";
 }
+
+/* ───── Conversión a MP3 ───── */
+const LAME_URLS = [
+  "https://cdn.jsdelivr.net/npm/lamejs@1.2.1/lame.min.js",
+  "https://cdnjs.cloudflare.com/ajax/libs/lamejs/1.2.1/lame.min.js"
+];
+const LAME_RATES = [8000, 11025, 12000, 16000, 22050, 24000, 32000, 44100, 48000];
+function loadScript(src) {
+  return new Promise((res, rej) => {
+    const s = document.createElement("script");
+    s.src = src; s.onload = res; s.onerror = () => rej(new Error("load"));
+    document.head.appendChild(s);
+  });
+}
+async function ensureLame() {
+  if (window.lamejs) return;
+  for (const u of LAME_URLS) { try { await loadScript(u); if (window.lamejs) return; } catch {} }
+  throw new Error("No se pudo cargar el conversor de MP3. Revisa tu conexión.");
+}
+async function decodeAudio(buf) {
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if (!AC) throw new Error("Tu navegador no puede convertir audio. Sube un MP3.");
+  const ctx = new AC();
+  try { return await new Promise((res, rej) => ctx.decodeAudioData(buf, res, rej)); }
+  catch { throw new Error("No pude leer ese audio. Prueba con otro archivo."); }
+  finally { if (ctx.close) ctx.close(); }
+}
+// lamejs solo admite ciertas frecuencias; si el audio trae otra (96 kHz, 88.2 kHz, etc.) se remuestrea a 44.1 kHz
+async function ensureRate(audio) {
+  if (LAME_RATES.includes(audio.sampleRate)) return audio;
+  const OAC = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+  if (!OAC) throw new Error("Este audio tiene una frecuencia que tu navegador no puede ajustar. Sube un MP3.");
+  const rate = 44100, ch = Math.min(2, audio.numberOfChannels);
+  const off = new OAC(ch, Math.ceil(audio.duration * rate), rate);
+  const src = off.createBufferSource();
+  src.buffer = audio; src.connect(off.destination); src.start();
+  return await off.startRendering();
+}
+async function encodeMp3(audio, kbps, onProgress) {
+  const ch = Math.min(2, audio.numberOfChannels), rate = audio.sampleRate;
+  const encoder = new lamejs.Mp3Encoder(ch, rate, kbps);
+  const L = audio.getChannelData(0), R = ch > 1 ? audio.getChannelData(1) : null;
+  const total = L.length, BLOCK = 1152 * 10, parts = [];
+  const toI16 = (src, i, n) => {
+    const o = new Int16Array(n);
+    for (let k = 0; k < n; k++) { const v = Math.max(-1, Math.min(1, src[i + k])); o[k] = v < 0 ? v * 0x8000 : v * 0x7FFF; }
+    return o;
+  };
+  for (let i = 0, b = 0; i < total; i += BLOCK, b++) {
+    const n = Math.min(BLOCK, total - i), l = toI16(L, i, n);
+    const out = R ? encoder.encodeBuffer(l, toI16(R, i, n)) : encoder.encodeBuffer(l);
+    if (out.length) parts.push(out);
+    if (b % 6 === 0) { onProgress(i / total); await tick(); }
+  }
+  const end = encoder.flush(); if (end.length) parts.push(end);
+  return new Blob(parts, { type: "audio/mpeg" });
+}
+
+/* ───── Subida a GitHub (con reintentos y errores claros) ───── */
+async function putToGitHub(path, body) {
+  const url = `https://api.github.com/repos/${CFG.repo}/contents/${path}`;
+  let r;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      r = await fetch(url, {
+        method: "PUT",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Accept": "application/vnd.github+json",
+          "X-GitHub-Api-Version": "2022-11-28",
+          "Content-Type": "application/json"
+        },
+        body
+      });
+    } catch { throw new Error("No hay conexión con GitHub. Revisa tu internet."); }
+    // 409 = otra subida al mismo tiempo; 5xx = fallo temporal → reintentar
+    if (r.status === 409 || r.status >= 500) { await sleep(1500 * (attempt + 1)); continue; }
+    break;
+  }
+  if (r.ok) return;
+  if (r.status === 401) { token = null; throw new Error("GitHub rechazó el token (¿caducó?). Avisa al admin."); }
+  if (r.status === 403 || r.status === 429) {
+    if (r.headers.get("x-ratelimit-remaining") === "0" || r.status === 429)
+      throw new Error("GitHub limitó las peticiones. Espera unos minutos e inténtalo otra vez.");
+    throw new Error("El token no tiene permiso de escritura en el repo. Avisa al admin.");
+  }
+  if (r.status === 404) throw new Error("GitHub no encuentra el repo o el token no tiene acceso a él. Avisa al admin.");
+  if (r.status === 409) throw new Error("Hubo otra subida al mismo tiempo. Inténtalo de nuevo.");
+  if (r.status === 413 || r.status === 422) throw new Error(`GitHub rechazó el archivo (código ${r.status}). Prueba con uno más pequeño.`);
+  throw new Error(`GitHub respondió con el código ${r.status}.`);
+}
+
+/* ───── Interfaz ───── */
+$("file").onchange = () => {
+  const f = $("file").files[0];
+  $("fname").textContent = f ? `${f.name} (${(f.size / 1048576).toFixed(1)} MB)` : "";
+  $("result").style.display = "none"; status("");
+};
 
 $("go").onclick = async () => {
   const f = $("file").files[0];
-  if (!CFG.blob) return show("La página aún no está configurada (falta el token cifrado).", true);
-  if (!f) return show("Elige un archivo.", true);
-  if (f.size > CFG.maxMB * 1048576) return show(`El archivo supera ${CFG.maxMB} MB.`, true);
-  $("go").disabled = true; show("Comprobando…");
+  if (!CFG.blob) return status("La página aún no está configurada (falta el token cifrado).", true);
+  if (!f) return status("Primero elige una canción.", true);
+  if (!$("pass").value) return status("Escribe la contraseña del grupo.", true);
+  const who = $("who").value.trim().slice(0, 30);
+  if (who.length < 2) return status("Escribe tu nick de Minecraft o tu nombre para identificar tu subida.", true);
+  try { localStorage.setItem("who", who); } catch {}
+  $("go").disabled = true; $("result").style.display = "none"; progress(null);
   try {
-    const ext = detectExt(new Uint8Array(await f.slice(0, 16).arrayBuffer()));
-    if (!ext) throw new Error("Formato no válido. Solo mp3, ogg o wav.");
-
     if (!token) {
+      status("Comprobando contraseña…");
       try { token = await decryptToken($("pass").value, CFG.blob); }
       catch { throw new Error("Contraseña incorrecta."); }
     }
 
-    show("Subiendo…");
-    const name = `${slug(f.name)}-${rand(5)}${ext}`;
-    const path = `${CFG.dir}/${name}`;
-    const who = $("who").value.trim().slice(0, 30) || "anónimo";
-    const r = await fetch(`https://api.github.com/repos/${CFG.repo}/contents/${path}`, {
-      method: "PUT",
-      headers: {
-        "Authorization": `Bearer ${token}`,
-        "Accept": "application/vnd.github+json",
-        "X-GitHub-Api-Version": "2022-11-28",
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({ message: `Subida de ${who}: ${name}`, content: await toBase64(f), branch: CFG.branch })
-    });
-    if (r.status === 401 || r.status === 403) { token = null; throw new Error("GitHub rechazó el token (¿caducó?). Avisa al admin."); }
-    if (!r.ok) throw new Error(`GitHub respondió con el código ${r.status}.`);
+    let mp3;
+    const head = new Uint8Array(await f.slice(0, 16).arrayBuffer());
+    if (isMp3(head)) {
+      mp3 = f;                                          // ya es MP3: se sube tal cual
+    } else {
+      if (f.size > CFG.maxInputMB * 1048576) throw new Error(`El archivo es muy grande para convertir (máx. ${CFG.maxInputMB} MB).`);
+      status("Cargando conversor…"); await ensureLame();
+      status("Leyendo audio…"); await tick();
+      let audio = await decodeAudio(await f.arrayBuffer());
+      audio = await ensureRate(audio);
+      status("Convirtiendo a MP3…"); progress(0);
+      mp3 = await encodeMp3(audio, CFG.kbps, p => progress(p * 0.8));
+    }
+    if (mp3.size > CFG.maxMB * 1048576) throw new Error(`El MP3 pesa ${(mp3.size / 1048576).toFixed(1)} MB y el máximo es ${CFG.maxMB} MB.`);
 
-    const url = `https://raw.githubusercontent.com/${CFG.repo}/${CFG.branch}/${path}`;
-    show('Listo. Tu enlace:<input id="u" readonly><button id="cp">Copiar</button>' +
-         '<small>Puede tardar uno o dos minutos en estar disponible.</small>');
-    $("u").value = url;
-    $("cp").onclick = () => { $("u").select(); navigator.clipboard.writeText(url); $("cp").textContent = "¡Copiado!"; };
+    status("Subiendo…"); progress(0.85);
+    // Cada persona tiene su carpeta: subidas/<nick>/<cancion>-xxxxx.mp3
+    const name = `${slug(f.name)}-${rand(5)}.mp3`, path = `${CFG.dir}/${slug(who)}/${name}`;
+    await putToGitHub(path, JSON.stringify({ message: `Subida de ${who}: ${name}`, content: await toBase64(mp3), branch: CFG.branch }));
+
+    progress(1); status("¡Listo! Copia tu enlace:");
+    $("u").value = `https://raw.githubusercontent.com/${CFG.repo}/${CFG.branch}/${path}`;
+    $("result").style.display = "block"; $("cp").textContent = "Copiar enlace";
   } catch (e) {
-    show(e.message || "Error inesperado.", true);
+    progress(null); status(e.message || "Error inesperado.", true);
   }
   $("go").disabled = false;
+};
+
+$("cp").onclick = async () => {
+  const u = $("u"); u.select(); u.setSelectionRange(0, 9999);
+  try { await navigator.clipboard.writeText(u.value); } catch { document.execCommand("copy"); }
+  $("cp").textContent = "¡Copiado!";
 };
 </script></body></html>
