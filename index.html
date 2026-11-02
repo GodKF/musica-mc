@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Música para Etched</title>
+<style>
+ :root{--bg:#16181d;--card:#20232b;--line:#3a3f4b;--fg:#e8e8ea;--mut:#8f95a6;--acc:#4f8cff;--err:#ff7b7b}
+ @media (prefers-color-scheme:light){:root{--bg:#f4f5f8;--card:#fff;--line:#cfd3dc;--fg:#1b1e25;--mut:#626878;--acc:#2f6fed;--err:#c62828}}
+ body{font-family:system-ui,sans-serif;max-width:480px;margin:40px auto;padding:0 16px;background:var(--bg);color:var(--fg)}
+ h1{font-size:1.3rem} label{display:block;margin:14px 0 4px;font-size:.9rem;color:var(--mut)}
+ input,button{width:100%;box-sizing:border-box;padding:10px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:inherit;font-size:1rem}
+ button{background:var(--acc);color:#fff;border:0;margin-top:18px;cursor:pointer} button:disabled{opacity:.5}
+ #out{margin-top:20px;word-break:break-all} .err{color:var(--err)} small{color:var(--mut)}
+</style></head><body>
+<h1>🎵 Sube tu música</h1>
+<small>mp3, ogg o wav · máx. <span id="mx"></span> MB. Pega el enlace que te doy en la Etching Table.</small>
+<label>Contraseña del grupo</label><input id="pass" type="password" autocomplete="current-password">
+<label>Tu nombre (opcional)</label><input id="who" maxlength="30">
+<label>Archivo</label><input id="file" type="file" accept=".mp3,.ogg,.wav,audio/*">
+<button id="go">Subir</button>
+<div id="out"></div>
+
+<script>
+// ───────── CONFIGURACIÓN (edita solo esto) ─────────
+const CFG = {
+  repo: "GodKF/musica-mc",
+  branch: "main",
+  dir: "subidas",
+  maxMB: 25,
+  // Pega aquí el resultado de encriptar.html (objeto {"v":1,"iter":...,"salt":...,"iv":...,"ct":...})
+  blob: null
+};
+// ───────────────────────────────────────────────────
+
+// ==CRYPTO==
+const enc = new TextEncoder(), dec = new TextDecoder();
+const b64 = {
+  to: u8 => btoa(String.fromCharCode(...u8)),
+  from: s => Uint8Array.from(atob(s), c => c.charCodeAt(0))
+};
+async function deriveKey(pass, salt, iter) {
+  const base = await crypto.subtle.importKey("raw", enc.encode(pass), "PBKDF2", false, ["deriveKey"]);
+  return crypto.subtle.deriveKey({ name: "PBKDF2", salt, iterations: iter, hash: "SHA-256" },
+    base, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
+}
+async function decryptToken(pass, blob) {
+  const key = await deriveKey(pass, b64.from(blob.salt), blob.iter);
+  const pt = await crypto.subtle.decrypt({ name: "AES-GCM", iv: b64.from(blob.iv) }, key, b64.from(blob.ct));
+  return dec.decode(pt);
+}
+// ==/CRYPTO==
+
+const $ = id => document.getElementById(id);
+$("mx").textContent = CFG.maxMB;
+let token = null;
+
+function detectExt(h) {
+  if (h[0] === 0x49 && h[1] === 0x44 && h[2] === 0x33) return ".mp3";            // ID3
+  if (h[0] === 0xFF && (h[1] & 0xE0) === 0xE0) return ".mp3";                    // frame sync
+  if (h[0] === 0x4F && h[1] === 0x67 && h[2] === 0x67 && h[3] === 0x53) return ".ogg"; // OggS
+  if (h[0] === 0x52 && h[1] === 0x49 && h[2] === 0x46 && h[3] === 0x46 &&
+      h[8] === 0x57 && h[9] === 0x41 && h[10] === 0x56 && h[11] === 0x45) return ".wav"; // RIFF…WAVE
+  return null;
+}
+function slug(name) {
+  const s = name.replace(/\.[^.]*$/, "").normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40);
+  return s || "cancion";
+}
+function rand(n) {
+  const a = "abcdefghijkmnpqrstuvwxyz23456789", r = crypto.getRandomValues(new Uint8Array(n));
+  return [...r].map(x => a[x % a.length]).join("");
+}
+function toBase64(file) {
+  return new Promise((res, rej) => {
+    const fr = new FileReader();
+    fr.onload = () => res(fr.result.split(",")[1]);
+    fr.onerror = () => rej(new Error("No se pudo leer el archivo."));
+    fr.readAsDataURL(file);
+  });
+}
+function show(html, isErr) {
+  const o = $("out");
+  if (isErr) { o.innerHTML = '<span class="err"></span>'; o.firstChild.textContent = html; }
+  else o.innerHTML = html;
+}
+
+$("go").onclick = async () => {
+  const f = $("file").files[0];
+  if (!CFG.blob) return show("La página aún no está configurada (falta el token cifrado).", true);
+  if (!f) return show("Elige un archivo.", true);
+  if (f.size > CFG.maxMB * 1048576) return show(`El archivo supera ${CFG.maxMB} MB.`, true);
+  $("go").disabled = true; show("Comprobando…");
+  try {
+    const ext = detectExt(new Uint8Array(await f.slice(0, 16).arrayBuffer()));
+    if (!ext) throw new Error("Formato no válido. Solo mp3, ogg o wav.");
+
+    if (!token) {
+      try { token = await decryptToken($("pass").value, CFG.blob); }
+      catch { throw new Error("Contraseña incorrecta."); }
+    }
+
+    show("Subiendo…");
+    const name = `${slug(f.name)}-${rand(5)}${ext}`;
+    const path = `${CFG.dir}/${name}`;
+    const who = $("who").value.trim().slice(0, 30) || "anónimo";
+    const r = await fetch(`https://api.github.com/repos/${CFG.repo}/contents/${path}`, {
+      method: "PUT",
+      headers: {
+        "Authorization": `Bearer ${token}`,
+        "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ message: `Subida de ${who}: ${name}`, content: await toBase64(f), branch: CFG.branch })
+    });
+    if (r.status === 401 || r.status === 403) { token = null; throw new Error("GitHub rechazó el token (¿caducó?). Avisa al admin."); }
+    if (!r.ok) throw new Error(`GitHub respondió con el código ${r.status}.`);
+
+    const url = `https://raw.githubusercontent.com/${CFG.repo}/${CFG.branch}/${path}`;
+    show('Listo. Tu enlace:<input id="u" readonly><button id="cp">Copiar</button>' +
+         '<small>Puede tardar uno o dos minutos en estar disponible.</small>');
+    $("u").value = url;
+    $("cp").onclick = () => { $("u").select(); navigator.clipboard.writeText(url); $("cp").textContent = "¡Copiado!"; };
+  } catch (e) {
+    show(e.message || "Error inesperado.", true);
+  }
+  $("go").disabled = false;
+};
+</script></body></html>

@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cifrar token (solo admin)</title>
+<style>
+ :root{--bg:#16181d;--card:#20232b;--line:#3a3f4b;--fg:#e8e8ea;--mut:#8f95a6;--acc:#4f8cff}
+ @media (prefers-color-scheme:light){:root{--bg:#f4f5f8;--card:#fff;--line:#cfd3dc;--fg:#1b1e25;--mut:#626878;--acc:#2f6fed}}
+ body{font-family:system-ui,sans-serif;max-width:560px;margin:40px auto;padding:0 16px;background:var(--bg);color:var(--fg)}
+ h1{font-size:1.3rem} label{display:block;margin:14px 0 4px;font-size:.9rem;color:var(--mut)}
+ input,textarea,button{width:100%;box-sizing:border-box;padding:10px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:inherit;font-size:1rem;font-family:inherit}
+ textarea{height:140px;font-family:ui-monospace,monospace;font-size:.8rem}
+ button{background:var(--acc);color:#fff;border:0;margin-top:18px;cursor:pointer} small{color:var(--mut)}
+</style></head><body>
+<h1>🔐 Cifrar token de GitHub</h1>
+<small>Solo para el admin. Todo ocurre en tu navegador; nada se envía a ningún sitio. No subas este archivo al repo.</small>
+<label>Token de GitHub (fine-grained, solo el repo de música)</label><input id="tok" type="password">
+<label>Contraseña del grupo (larga: 4+ palabras al azar o 16+ caracteres)</label><input id="pw" type="text">
+<button id="go">Cifrar</button>
+<label>Resultado: pégalo en <code>blob:</code> dentro de <code>index.html</code></label>
+<textarea id="out" readonly></textarea>
+<script>
+const ITER = 600000;
+// ==CRYPTO==
+const enc = new TextEncoder(), dec = new TextDecoder();
+const b64 = {
+  to: u8 => btoa(String.fromCharCode(...u8)),
+  from: s => Uint8Array.from(atob(s), c => c.charCodeAt(0))
+};
+async function deriveKey(pass, salt, iter) {
+  const base = await crypto.subtle.importKey("raw", enc.encode(pass), "PBKDF2", false, ["deriveKey"]);
+  return crypto.subtle.deriveKey({ name: "PBKDF2", salt, iterations: iter, hash: "SHA-256" },
+    base, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
+}
+async function encryptToken(pass, token) {
+  const salt = crypto.getRandomValues(new Uint8Array(16)), iv = crypto.getRandomValues(new Uint8Array(12));
+  const key = await deriveKey(pass, salt, ITER);
+  const ct = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, enc.encode(token)));
+  return { v: 1, iter: ITER, salt: b64.to(salt), iv: b64.to(iv), ct: b64.to(ct) };
+}
+// ==/CRYPTO==
+document.getElementById("go").onclick = async () => {
+  const t = document.getElementById("tok").value.trim(), p = document.getElementById("pw").value;
+  if (!t || p.length < 12) { document.getElementById("out").value = "Falta el token o la contraseña es demasiado corta (mín. 12)."; return; }
+  document.getElementById("out").value = JSON.stringify(await encryptToken(p, t));
+};
+</script></body></html>
